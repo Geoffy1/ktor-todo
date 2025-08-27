@@ -1,9 +1,19 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
+
 plugins {
     kotlin("jvm") version "1.9.25"
     application
-    kotlin("plugin.serialization") version "1.9.25"
+}
+
+kotlin {
+    jvmToolchain(21) // 🔥 Forces Kotlin to use Java 21
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21)) // 🔥 Ensures Java also uses 21
+    }
 }
 
 repositories { mavenCentral() }
