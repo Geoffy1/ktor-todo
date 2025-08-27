@@ -2,47 +2,46 @@ package com.example.todos
 
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 
-interface TodoRepository {
-    fun all(): List<TodoDTO>
-    fun get(id: Int): TodoDTO?
-    fun create(req: CreateTodoDTO): TodoDTO
-    fun update(id: Int, req: UpdateTodoDTO): TodoDTO?
-    fun delete(id: Int): Boolean
-}
+class TodoRepository {
 
-class ExposedTodoRepository : TodoRepository {
-
-    override fun all(): List<TodoDTO> = transaction {
-        TodosTable.selectAll()
-            .orderBy(TodosTable.id to SortOrder.ASC)
-            .map { it.toTodoDTO() }
+    fun allTodos(): List<Todo> = transaction {
+        Todos.selectAll().map { toTodo(it) }
     }
 
-    override fun get(id: Int): TodoDTO? = transaction {
-        TodosTable.select { TodosTable.id eq id }
+    fun todoById(id: Int): Todo? = transaction {
+        Todos
+            .selectAll()
+            .where { Todos.id eq id }
             .singleOrNull()
-            ?.toTodoDTO()
+            ?.let { toTodo(it) }
     }
 
-    override fun create(req: CreateTodoDTO): TodoDTO = transaction {
-        val insertedId = TodosTable.insertAndGetId { row ->
-            row[title] = req.title
-            row[completed] = false
+    fun addTodo(title: String, done: Boolean): Todo = transaction {
+        val id = Todos.insertAndGetId {
+            it[Todos.title] = title
+            it[Todos.done] = done
         }.value
-        get(insertedId)!!
+        Todo(id, title, done)
     }
 
-    override fun update(id: Int, req: UpdateTodoDTO): TodoDTO? = transaction {
-        val updatedRows = TodosTable.update({ TodosTable.id eq id }) { row ->
-            if (req.title != null) row[title] = req.title
-            if (req.completed != null) row[completed] = req.completed
+    fun updateTodo(id: Int, title: String, done: Boolean): Boolean = transaction {
+        val updatedRows = Todos.update({ Todos.id eq id }) {
+            it[Todos.title] = title
+            it[Todos.done] = done
         }
-        if (updatedRows == 0) null else get(id)
+        updatedRows > 0
     }
 
-    override fun delete(id: Int): Boolean = transaction {
-        TodosTable.deleteWhere { TodosTable.id eq id } > 0
+    fun deleteTodo(id: Int): Boolean = transaction {
+        val deletedRows = Todos.deleteWhere { Todos.id eq id }
+        deletedRows > 0
     }
+
+    private fun toTodo(row: ResultRow): Todo =
+        Todo(
+            id = row[Todos.id],
+            title = row[Todos.title],
+            done = row[Todos.done]
+        )
 }

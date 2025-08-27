@@ -2,33 +2,25 @@ package com.example.db
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
-import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.sql.Database
 
 object DatabaseFactory {
+    private var database: Database? = null   // was val, now var
+
     fun init() {
-        val jdbcUrl = System.getenv("DB_JDBC_URL") ?: "jdbc:postgresql://localhost:5432/todos"
-        val dbUser = System.getenv("DB_USER") ?: "postgres"
-        val dbPass = System.getenv("DB_PASS") ?: "postgres"
-
-        val hikariConfig = HikariConfig().apply {
-            driverClassName = "org.postgresql.Driver"
-            jdbcUrl = jdbcUrl
-            username = dbUser
-            password = dbPass
-            maximumPoolSize = 10
-            isAutoCommit = false
-            validate()
+        if (database == null) {
+            val config = HikariConfig().apply {
+                jdbcUrl = System.getenv("JDBC_DATABASE_URL")
+                    ?: "jdbc:postgresql://localhost:5432/ktor_todo"
+                driverClassName = "org.postgresql.Driver"
+                username = System.getenv("DB_USER") ?: "postgres"
+                password = System.getenv("DB_PASSWORD") ?: "postgres"
+                maximumPoolSize = 10
+                isAutoCommit = false
+                transactionIsolation = "TRANSACTION_REPEATABLE_READ"
+                validate()
+            }
+            database = Database.connect(HikariDataSource(config))
         }
-
-        val dataSource = HikariDataSource(hikariConfig)
-
-        Flyway.configure()
-            .dataSource(dataSource)
-            .locations("classpath:db/migration")
-            .load()
-            .migrate()
-
-        Database.connect(dataSource)
     }
 }
