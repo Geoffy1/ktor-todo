@@ -18,21 +18,17 @@ object DatabaseFactory {
             password = dbPass
             maximumPoolSize = 10
             isAutoCommit = false
-            // optional: transactionIsolation = "TRANSACTION_REPEATABLE_READ"
             validate()
         }
 
-        // create datasource once and never reassign a val
         val dataSource = HikariDataSource(hikariConfig)
 
-        // run Flyway migrations
         Flyway.configure()
             .dataSource(dataSource)
             .locations("classpath:db/migration")
             .load()
             .migrate()
 
-        // connect Exposed to the datasource
         Database.connect(dataSource)
     }
 }

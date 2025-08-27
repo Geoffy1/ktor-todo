@@ -31,13 +31,11 @@ class ExposedTodoRepository : TodoRepository {
             row[title] = req.title
             row[completed] = false
         }.value
-        // fetch and return
         get(insertedId)!!
     }
 
     override fun update(id: Int, req: UpdateTodoDTO): TodoDTO? = transaction {
         val updatedRows = TodosTable.update({ TodosTable.id eq id }) { row ->
-            // only set fields when provided (avoid using .let with `it` ambiguity)
             if (req.title != null) row[title] = req.title
             if (req.completed != null) row[completed] = req.completed
         }
