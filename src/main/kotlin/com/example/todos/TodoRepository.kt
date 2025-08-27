@@ -2,46 +2,63 @@ package com.example.todos
 
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.javatime.datetime
+import java.time.LocalDateTime
 
-class TodoRepository {
+data class Todo(
+    val id: Int,
+    val title: String,
+    val done: Boolean,
+    val createdAt: LocalDateTime
+)
 
-    fun allTodos(): List<Todo> = transaction {
+object Todos : Table() {
+    val id = integer("id").autoIncrement()
+    val title = varchar("title", 255)
+    val done = bool("done")
+    val createdAt = datetime("created_at")
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+interface TodoRepository {
+    fun allTodos(): List<Todo>
+    fun create(todo: Todo): Todo?
+    fun update(id: Int, todo: Todo): Boolean
+    fun delete(id: Int): Boolean
+}
+
+class ExposedTodoRepository : TodoRepository {
+    private fun toTodo(row: ResultRow): Todo {
+        return Todo(
+            id = row[Todos.id],
+            title = row[Todos.title],
+            done = row[Todos.done],
+            createdAt = row[Todos.createdAt]
+        )
+    }
+
+    override fun allTodos(): List<Todo> = transaction {
         Todos.selectAll().map { toTodo(it) }
     }
 
-    fun todoById(id: Int): Todo? = transaction {
-        Todos
-            .selectAll()
-            .where { Todos.id eq id }
-            .singleOrNull()
-            ?.let { toTodo(it) }
-    }
-
-    fun addTodo(title: String, done: Boolean): Todo = transaction {
+    override fun create(todo: Todo): Todo? = transaction {
         val id = Todos.insertAndGetId {
-            it[Todos.title] = title
-            it[Todos.done] = done
-        }.value
-        Todo(id, title, done)
-    }
-
-    fun updateTodo(id: Int, title: String, done: Boolean): Boolean = transaction {
-        val updatedRows = Todos.update({ Todos.id eq id }) {
-            it[Todos.title] = title
-            it[Todos.done] = done
+            it[title] = todo.title
+            it[done] = todo.done
+            it[createdAt] = LocalDateTime.now()
         }
-        updatedRows > 0
+        Todos.select { Todos.id eq id }.singleOrNull()?.let { toTodo(it) }
     }
 
-    fun deleteTodo(id: Int): Boolean = transaction {
-        val deletedRows = Todos.deleteWhere { Todos.id eq id }
-        deletedRows > 0
+    override fun update(id: Int, todo: Todo): Boolean = transaction {
+        Todos.update({ Todos.id eq id }) {
+            it[title] = todo.title
+            it[done] = todo.done
+        } > 0
     }
 
-    private fun toTodo(row: ResultRow): Todo =
-        Todo(
-            id = row[Todos.id],
-            title = row[Todos.title],
-            done = row[Todos.done]
-        )
+    override fun delete(id: Int): Boolean = transaction {
+        Todos.deleteWhere { Todos.id eq id } > 0
+    }
 }

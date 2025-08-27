@@ -1,42 +1,73 @@
 package com.example
 
 import com.example.todos.*
-import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.ktor.server.request.*
+import io.ktor.http.HttpStatusCode
 
-fun Application.configureRoutes() {
-    val repo: TodoRepository = ExposedTodoRepository()
+fun Application.configureRouting() {
+    val todoRepository: ExposedTodoRepository = ExposedTodoRepository()
 
     routing {
-        get("/health") { call.respond(mapOf("status" to "ok")) }
-
-        route("/api/todos") {
+        route("/todos") {
             get {
-                call.respond(repo.all())
+                val todos = todoRepository.allTodos()
+                call.respond(todos)
             }
+
             post {
-                val body = call.receive<CreateTodoDTO>()
-                require(body.title.isNotBlank()) { "Title is required" }
-                val created = repo.create(body)
-                call.respond(HttpStatusCode.Created, created)
+                val todo = call.receive<Todo>()
+                val newTodo = todoRepository.create(todo)
+                if (newTodo != null) {
+                    call.respond(newTodo)
+                } else {
+                    call.respondText("Failed to create todo", status = HttpStatusCode.InternalServerError)
+                }
             }
+
             get("/{id}") {
                 val id = call.parameters["id"]?.toIntOrNull()
-                val item = id?.let { repo.get(it) }
-                if (item == null) call.respond(HttpStatusCode.NotFound) else call.respond(item)
+                if (id == null) {
+                    call.respond(HttpStatusCode.BadRequest, "Invalid ID")
+                    return@get
+                }
+                val todo = todoRepository.allTodos().find { it.id == id }
+                if (todo != null) {
+                    call.respond(todo)
+                } else {
+                    call.respond(HttpStatusCode.NotFound)
+                }
             }
+
             put("/{id}") {
-                val id = call.parameters["id"]?.toIntOrNull() ?: return@put call.respond(HttpStatusCode.BadRequest)
-                val body = call.receive<UpdateTodoDTO>()
-                val updated = repo.update(id, body)
-                if (updated == null) call.respond(HttpStatusCode.NotFound) else call.respond(updated)
+                val id = call.parameters["id"]?.toIntOrNull()
+                if (id == null) {
+                    call.respond(HttpStatusCode.BadRequest, "Invalid ID")
+                    return@put
+                }
+                val updatedTodo = call.receive<Todo>()
+                val success = todoRepository.update(id, updatedTodo)
+                if (success) {
+                    call.respondText("Todo updated successfully", status = HttpStatusCode.OK)
+                } else {
+                    call.respond(HttpStatusCode.NotFound)
+                }
             }
+
             delete("/{id}") {
-                val id = call.parameters["id"]?.toIntOrNull() ?: return@delete call.respond(HttpStatusCode.BadRequest)
-                if (repo.delete(id)) call.respond(HttpStatusCode.NoContent) else call.respond(HttpStatusCode.NotFound)
+                val id = call.parameters["id"]?.toIntOrNull()
+                if (id == null) {
+                    call.respond(HttpStatusCode.BadRequest, "Invalid ID")
+                    return@delete
+                }
+                val success = todoRepository.delete(id)
+                if (success) {
+                    call.respondText("Todo deleted successfully", status = HttpStatusCode.OK)
+                } else {
+                    call.respond(HttpStatusCode.NotFound)
+                }
             }
         }
     }
