@@ -1,5 +1,0 @@
-/app/src/main/kotlin/com/example/Application.kt
-/app/src/main/kotlin/com/example/todos/TodoRepository.kt
-/app/src/main/kotlin/com/example/db/DatabaseFactory.kt
-/app/src/main/kotlin/com/example/todos/Todo.kt
-/app/src/main/kotlin/com/example/Routes.kt

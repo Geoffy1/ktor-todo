@@ -11,19 +11,28 @@ object DatabaseFactory {
         val dbUser = System.getenv("DB_USER") ?: "postgres"
         val dbPass = System.getenv("DB_PASS") ?: "postgres"
 
-        val config = HikariConfig().apply {
+        val hikariConfig = HikariConfig().apply {
             driverClassName = "org.postgresql.Driver"
             jdbcUrl = jdbcUrl
             username = dbUser
             password = dbPass
             maximumPoolSize = 10
             isAutoCommit = false
-            transactionIsolation = "TRANSACTION_REPEATABLE_READ"
+            // optional: transactionIsolation = "TRANSACTION_REPEATABLE_READ"
             validate()
         }
 
-        val ds = HikariDataSource(config)
-        Flyway.configure().dataSource(ds).locations("classpath:db/migration").load().migrate()
-        Database.connect(ds)
+        // create datasource once and never reassign a val
+        val dataSource = HikariDataSource(hikariConfig)
+
+        // run Flyway migrations
+        Flyway.configure()
+            .dataSource(dataSource)
+            .locations("classpath:db/migration")
+            .load()
+            .migrate()
+
+        // connect Exposed to the datasource
+        Database.connect(dataSource)
     }
 }

@@ -2,6 +2,7 @@ package com.example.todos
 
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 
 interface TodoRepository {
     fun all(): List<TodoDTO>
@@ -12,27 +13,35 @@ interface TodoRepository {
 }
 
 class ExposedTodoRepository : TodoRepository {
+
     override fun all(): List<TodoDTO> = transaction {
-        TodosTable.selectAll().orderBy(TodosTable.id).map { it.toTodoDTO() }
+        TodosTable.selectAll()
+            .orderBy(TodosTable.id to SortOrder.ASC)
+            .map { it.toTodoDTO() }
     }
 
     override fun get(id: Int): TodoDTO? = transaction {
-        TodosTable.select { TodosTable.id eq id }.singleOrNull()?.toTodoDTO()
+        TodosTable.select { TodosTable.id eq id }
+            .singleOrNull()
+            ?.toTodoDTO()
     }
 
     override fun create(req: CreateTodoDTO): TodoDTO = transaction {
-        val insertedId = TodosTable.insertAndGetId {
-            it[title] = req.title
+        val insertedId = TodosTable.insertAndGetId { row ->
+            row[title] = req.title
+            row[completed] = false
         }.value
+        // fetch and return
         get(insertedId)!!
     }
 
     override fun update(id: Int, req: UpdateTodoDTO): TodoDTO? = transaction {
-        val updated = TodosTable.update({ TodosTable.id eq id }) {
-            req.title?.let { t -> it[title] = t }
-            req.completed?.let { c -> it[completed] = c }
+        val updatedRows = TodosTable.update({ TodosTable.id eq id }) { row ->
+            // only set fields when provided (avoid using .let with `it` ambiguity)
+            if (req.title != null) row[title] = req.title
+            if (req.completed != null) row[completed] = req.completed
         }
-        if (updated == 0) null else get(id)
+        if (updatedRows == 0) null else get(id)
     }
 
     override fun delete(id: Int): Boolean = transaction {
